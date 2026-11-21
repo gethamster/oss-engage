@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "artifact": "engage-0.1.0-aarch64-apple-darwin",
+  "revision": "c4d515b40a671a82555425af778d29b49d3153e3",
+  "checks": [
+    "packaged executable readiness",
+    "bundled inspector HTML",
+    "bundled WASM magic bytes",
+    "task creation"
+  ]
+}

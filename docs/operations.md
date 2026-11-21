@@ -57,6 +57,12 @@ through the deployment environment:
   principals, explicit channel mappings, and credential environment-variable
   names. Configuration contains references, not secret values.
 
+Build the optional container with `docker build --build-arg
+ENGAGE_REVISION=$(git rev-parse HEAD) -t engage .`. The build includes the native
+binary, inspector, and dependency notices. It requires no Git metadata inside the
+build context. Local qualification uses the native archive; the container recipe
+has not been executed on this Mac because its Docker daemon is unavailable.
+
 Start each instance with `engage serve --bind 0.0.0.0:4100`. For a container, mount
 credentials as secret environment variables or use workload identity. The image
 runs as an unprivileged user. Do not add live databases or credentials to Git.

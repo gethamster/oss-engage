@@ -2,6 +2,7 @@
 """Package a checked native release and WASM inspector, including third-party notices."""
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -49,7 +50,10 @@ def main():
                 copied.append(file.name)
         inventory.append({"name": package["name"], "version": package["version"], "license": package["license"], "repository": package.get("repository"), "notices": copied})
     (third_party / "inventory.json").write_text(json.dumps(inventory, indent=2) + "\n")
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    try:
+        revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL).strip()
+    except subprocess.CalledProcessError:
+        revision = os.environ.get("ENGAGE_BUILD_REVISION", "unversioned-source")
     (directory / "build.json").write_text(json.dumps({"version": version, "host": host, "revision": revision}, indent=2) + "\n")
     archive = args.output / f"{name}.tar.gz"
     with tarfile.open(archive, "w:gz") as output:

@@ -72,3 +72,7 @@ Upstream has no NOTICE file. Engage adaptations are modified Rust implementation
   whole. Rust strings cannot contain lone UTF-16 surrogates.
 - The embedding router convenience is HTTP-only. Use Service and WorkerHandle
   when scheduling, sync, and wake delivery must run inside another application.
+
+The container build recipe includes the native package and dependency notices.
+It was not executed locally because the Docker daemon is unavailable. The native
+macOS archive was booted and its bundled inspector/WASM and task API verified.
