@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/engage-core", "crates/engage-store", "crates/engage-client", "crates/engage-server", "crates/engage-sync", "crates/engage-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "Apache-2.0"
+repository = "https://github.com/gethamster/oss-engage"
+authors = ["GetHamster contributors"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[profile.dev]
+debug = 1
+
+[profile.release]
+lto = "thin"
+strip = "debuginfo"

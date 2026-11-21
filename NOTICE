@@ -1,0 +1,10 @@
+Engage
+Copyright 2026 GetHamster contributors
+
+This project includes Rust adaptations of software and tests from Vercel Board.
+Copyright 2026 Vercel Inc.
+Licensed under the Apache License, Version 2.0.
+Upstream: https://github.com/vercel/board
+Baseline: fef19e5bb1e17551f119be11f7af8ed3387892bb (@vercel/board 0.53.0).
+Modifications: Rust implementation, storage backends, inspector, and integration.
+See PORTING.md for provenance and compatibility status.
