@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "checks": [
+    "SQLite conformance",
+    "PostgreSQL conformance",
+    "two-replica shared storage and claims",
+    "unexpired delivery lease survives owner restart",
+    "cross-replica acknowledgement survives restart",
+    "one-time SQLite schedule survives downtime"
+  ]
+}

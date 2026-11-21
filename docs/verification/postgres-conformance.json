@@ -1,0 +1,467 @@
+{
+  "url": "http://127.0.0.1:56322",
+  "checks": [
+    {
+      "group": "core",
+      "name": "says in its discovery where it is",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "posts a message, and reads it back by its ID",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "puts a reply in its root's thread",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "replies after a message only while it's the thread's newest, one of any that race",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "posts once for a client ID, however many times it is sent",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "raises the version with each edit, reaction, and label",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "labels a message only while its labels are as the write says, one of any that race",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "edits and deletes a message only at the revision it was read at, which only edits and deletes change",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "reads one channel's messages after a cursor of its own, oldest first, and on from where it stopped",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "lists channels a page at a time, and the ones under a prefix",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "reads a thread's replies after one of its messages, and as many of its newest as it's asked for",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "reads one channel's newest messages, as many as it's asked for",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "lists threads, each with its reply count and latest reply",
+      "status": "passed"
+    },
+    {
+      "group": "paging",
+      "name": "pages back through a channel's threads by their `older`, each thread once",
+      "status": "passed"
+    },
+    {
+      "group": "paging",
+      "name": "refuses to page threads back and forward at once",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "stores a handle one actor has as a mention of them, and keeps one no one has as typed",
+      "status": "passed"
+    },
+    {
+      "group": "search",
+      "name": "finds threads by text anywhere in a message of theirs, in any case, as it reads now",
+      "status": "passed"
+    },
+    {
+      "group": "search",
+      "name": "lists the threads of every channel under a pattern at once",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "reads events after a cursor, each with a cursor of its own",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "reads a channel's newest events, oldest first, and goes on from their cursor",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "holds a long-poll open until the next event",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "deletes a message, leaving a tombstone",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "drops a deleted message from what its labels find",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "lists the channel and you in it",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "creates a channel only once: one a post made is there already",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "answers 404 for an ID that names nothing",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "answers 400 for a request that does not validate",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "narrows a caller to what its x-board-can says",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "takes a profile and its avatar as one x-board-profile header, and shows both on what it writes",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "lets a profile change only its own messages, and its principal all of them",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "ignores x-board-avatar, which x-board-profile's avatar parameter replaced",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "ignores x-board-session: who writes is the principal and its profile",
+      "status": "passed"
+    },
+    {
+      "group": "core",
+      "name": "shows no session on a message, its event, or you",
+      "status": "passed"
+    },
+    {
+      "group": "schedules",
+      "name": "schedules a reply, lists it, and cancels it",
+      "status": "passed"
+    },
+    {
+      "group": "schedules",
+      "name": "keeps noSync on a schedule, so its sends stay off every platform",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "starts a thread as a task, or makes one of a thread that was there: it reads as its thread, and board.task finds it",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "makes a task once for a client ID, and none under an ID a reply or a plain thread landed with",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "gives a task to one of the claims that race for it, and takes its result",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "gives a claim the lease it asks for, up to 5 minutes, and says when it ends",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "fences what a claim does: once it's over, its writes are lost and change nothing",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "holds a task until the tasks it needs complete, which a failed or canceled one never does",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "refuses a prerequisite that was canceled, which can never complete, and takes one that failed",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "lists the tasks that wait for one in the channel a list names, or its subtree, and no other",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "lists the last active tasks with latest, wherever they come in the order they were made",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "says task.ready each time a task that needs others becomes ready: right after it is made or unblocked, once they have completed",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "changes what a task needs: it waits for the new ones, is ready once they have completed, and at once with none",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "refuses a change of needs that would make a task wait for itself, straight back or through others",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "changes what a task needs only while no one holds it and it has not finished",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "makes several tasks in one write, in the order given: each waits for the ones it names, of the batch or there already, and an id makes them once",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "makes none of a batch when one of its tasks can not be made, wherever it comes in it",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "holds a task for a person, by its owner or its claim, and gives it back when unblocked",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "keeps a task assigned to a profile for that actor alone",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "lets a profile change only the tasks it made, and its principal all of them",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "takes label in its channel to claim a task: a caller narrowed to reading and posting claims none",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "takes read in a prerequisite's channel to wait for it: a caller narrowed out of it makes no task that needs it",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "claims the oldest ready task in a channel or its subtree that has the labels asked for, and waits for one",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "shows a feed that filters on board.task=ready a task becoming ready and being claimed, and never a token",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "keeps labels under board. its own: a label write or a post that sets one is refused",
+      "status": "passed"
+    },
+    {
+      "group": "tasks",
+      "name": "holds a task when anyone but its owner edits its root, which ends its claim",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "grants a principal, lists it, and revokes it",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "makes another grant for the same principals, and changes one by its ID",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "keeps a grant's can as written, a pattern with no permissions included",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "lets the most specific pattern decide, then the closest principal there, and adds up ties",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "lets everyone narrow what something else lets in, and lets no one in itself",
+      "status": "skipped",
+      "detail": "this board names no team, so no project is on it for all-projects"
+    },
+    {
+      "group": "grants",
+      "name": "caps a person by their team role, so a viewer reads but neither posts nor manages",
+      "status": "skipped",
+      "detail": "name a viewer in principals to check it: a board without team roles caps no one"
+    },
+    {
+      "group": "grants",
+      "name": "names an app by its slug or client ID, keeps it by client ID, and every app as a group",
+      "status": "skipped",
+      "detail": "name an app in principals to check it: a local board has no apps"
+    },
+    {
+      "group": "grants",
+      "name": "takes manage at each pattern a grant names to change it, and at * to list them",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "lets no caller narrowed with x-board-can grant past its can, even where everyone's grant closes it",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "lets no caller narrowed with x-board-can let anyone in where everyone gets more than it has",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "refuses a grant its maker couldn't take back, unless it says lockMeOut",
+      "status": "skipped",
+      "detail": "nothing locks this run out of a channel, so no grant it makes is a lockout: it owns the board, or it's the board's own code"
+    },
+    {
+      "group": "grants",
+      "name": "makes several grants in one write, or none of them, a lock with the grant that keeps its maker in",
+      "status": "passed"
+    },
+    {
+      "group": "grants",
+      "name": "lets a member grant on a pattern after a lock under it",
+      "status": "skipped",
+      "detail": "a run can't be shut out by a lock and lift it afterwards: the board's own tests check it"
+    },
+    {
+      "group": "grants",
+      "name": "lets a project on another team in, in its environments",
+      "status": "skipped",
+      "detail": "grants across teams aren't specified yet: what a project on another team needs, and what all-projects means for one, comes later"
+    },
+    {
+      "group": "schemas",
+      "name": "lists the built-in schemas first, and reads a schema by its ID",
+      "status": "passed"
+    },
+    {
+      "group": "schemas",
+      "name": "registers a schema version once: the same definition again changes nothing, and another is refused",
+      "status": "passed"
+    },
+    {
+      "group": "schemas",
+      "name": "refuses a built-in's name, and a definition it couldn't check a value against",
+      "status": "passed"
+    },
+    {
+      "group": "schemas",
+      "name": "carries a block in a message, checked against the schema its fence names",
+      "status": "passed"
+    },
+    {
+      "group": "schemas",
+      "name": "refuses a caller narrowed with x-board-can a schema, and lets it read them",
+      "status": "passed"
+    },
+    {
+      "group": "attachments",
+      "name": "takes a file, posts it, and gives it back",
+      "status": "passed"
+    },
+    {
+      "group": "attachments",
+      "name": "refuses a name that would download as a dotfile",
+      "status": "passed"
+    },
+    {
+      "group": "attachments",
+      "name": "starts a task with a file, which its root carries",
+      "status": "passed"
+    },
+    {
+      "group": "watchers",
+      "name": "matches a registered tail, hands the match to a pull, and takes its ack",
+      "status": "passed"
+    },
+    {
+      "group": "watchers",
+      "name": "wakes by path only where its discovery says so, and only a Vercel project",
+      "status": "passed"
+    },
+    {
+      "group": "watchers",
+      "name": "refuses a caller narrowed with x-board-can its principal's watchers: registering, pulling, and acking",
+      "status": "passed"
+    },
+    {
+      "group": "sync",
+      "name": "keeps sync's records: an import as a profile of its importer, its lookups by platform ID, a receipt, and where it's synced",
+      "status": "passed"
+    },
+    {
+      "group": "sync",
+      "name": "meets a platform user an import's text mentions: an actor as one who wrote would be, whom the text names by that actor's ID",
+      "status": "passed"
+    },
+    {
+      "group": "sync",
+      "name": "queues a platform thread's events in its sync's inbox once, and leases each after the one before is acked",
+      "status": "passed"
+    },
+    {
+      "group": "sync",
+      "name": "takes an edit of a long message in its sync's inbox, under the longest event ID the protocol allows, and refuses a longer one",
+      "status": "passed"
+    },
+    {
+      "group": "sync",
+      "name": "hands a sync each message change as a match of its @sync watcher",
+      "status": "passed"
+    },
+    {
+      "group": "sync",
+      "name": "keeps noSync on a post and a reply, so sync sends neither",
+      "status": "passed"
+    },
+    {
+      "group": "sync",
+      "name": "refuses a caller narrowed with x-board-can sync's records: imports, receipts, and the inbox",
+      "status": "passed"
+    }
+  ],
+  "ok": true
+}

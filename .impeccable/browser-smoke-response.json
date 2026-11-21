@@ -1,0 +1,149 @@
+{
+  "service": "task-owned local inspector smoke",
+  "threads": [
+    {
+      "message": {
+        "id": "1",
+        "channel": "ui-smoke",
+        "text": "Verify the Engage inspector\n\nCheck **task claims**, threaded replies, and proof after completion.",
+        "re": null,
+        "replyTo": null,
+        "thread": "1",
+        "labels": {
+          "board.task": "completed"
+        },
+        "reactions": {},
+        "by": {
+          "actor": "local:user:owner",
+          "principal": "local:user:owner",
+          "profile": null
+        },
+        "author": {
+          "kind": "person",
+          "handle": "owner",
+          "name": "Local owner",
+          "avatar": null,
+          "verified": true
+        },
+        "noSync": false,
+        "origin": null,
+        "from": null,
+        "createdAt": "2026-11-21T05:38:00.113Z",
+        "editedAt": null,
+        "deleted": false,
+        "undelivered": {},
+        "attachments": [],
+        "links": [],
+        "blocks": [],
+        "mentions": [],
+        "version": 5,
+        "revision": 1,
+        "task": {
+          "state": "completed",
+          "owner": "local:user:owner",
+          "by": "local:user:owner",
+          "for": null,
+          "needs": [],
+          "epoch": 1,
+          "claim": null,
+          "blocked": null,
+          "result": "Verified in the real browser: create \u2192 claim \u2192 progress reply \u2192 completion. Markdown proof is visible in the same thread.",
+          "reason": null
+        }
+      },
+      "replies": [
+        {
+          "id": "4",
+          "channel": "ui-smoke",
+          "text": "The browser created and claimed this task successfully.\n\nProof: a single claim is active and the thread keeps the same identity.",
+          "re": "1",
+          "replyTo": null,
+          "thread": "1",
+          "labels": {},
+          "reactions": {},
+          "by": {
+            "actor": "local:user:owner",
+            "principal": "local:user:owner",
+            "profile": null
+          },
+          "author": {
+            "kind": "person",
+            "handle": "owner",
+            "name": "Local owner",
+            "avatar": null,
+            "verified": true
+          },
+          "noSync": false,
+          "origin": null,
+          "from": null,
+          "createdAt": "2026-11-21T05:38:16.464Z",
+          "editedAt": null,
+          "deleted": false,
+          "undelivered": {},
+          "attachments": [],
+          "links": [],
+          "blocks": [],
+          "mentions": [],
+          "version": 4,
+          "revision": 4
+        }
+      ],
+      "cursor": "7",
+      "schedules": []
+    },
+    {
+      "message": {
+        "id": "6",
+        "channel": "ui-smoke",
+        "text": "Confirm task creation opens its thread",
+        "re": null,
+        "replyTo": null,
+        "thread": "6",
+        "labels": {
+          "board.task": "ready"
+        },
+        "reactions": {},
+        "by": {
+          "actor": "local:user:owner",
+          "principal": "local:user:owner",
+          "profile": null
+        },
+        "author": {
+          "kind": "person",
+          "handle": "owner",
+          "name": "Local owner",
+          "avatar": null,
+          "verified": true
+        },
+        "noSync": false,
+        "origin": null,
+        "from": null,
+        "createdAt": "2026-11-21T05:41:19.063Z",
+        "editedAt": null,
+        "deleted": false,
+        "undelivered": {},
+        "attachments": [],
+        "links": [],
+        "blocks": [],
+        "mentions": [],
+        "version": 7,
+        "revision": 6,
+        "task": {
+          "state": "ready",
+          "owner": "local:user:owner",
+          "by": "local:user:owner",
+          "for": null,
+          "needs": [],
+          "epoch": 0,
+          "claim": null,
+          "blocked": null,
+          "result": null,
+          "reason": null
+        }
+      },
+      "replies": [],
+      "cursor": "7",
+      "schedules": []
+    }
+  ]
+}

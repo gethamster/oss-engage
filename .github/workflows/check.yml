@@ -1,0 +1,66 @@
+name: Rust and protocol checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: engage-test-only
+          POSTGRES_DB: engage
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Install protocol oracle tools
+        run: npm install --global pnpm@11.23.0
+      - name: Install Rust toolchain
+        run: rustup show
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+        env:
+          ENGAGE_TEST_POSTGRES: postgres://postgres:engage-test-only@localhost:5432/engage
+      - run: cargo doc --workspace --no-deps
+      - name: Build inspector
+        run: |
+          cargo install trunk --version 0.22.2 --locked
+          cd crates/engage-inspector
+          trunk build --release --public-url /inspect/
+      - run: cargo build --release -p engage-cli
+      - name: Build native test service
+        run: cargo build -p engage-cli
+      - name: Start disposable S3 emulator
+        run: |
+          python3 -m venv .cache/s3
+          .cache/s3/bin/pip install 'moto[server]==5.2.5'
+          .cache/s3/bin/moto_server -H 127.0.0.1 -p 56320 > .cache/s3.log 2>&1 &
+          .cache/s3/bin/python - <<'PYCODE'
+          import boto3,time
+          client=boto3.client('s3',endpoint_url='http://127.0.0.1:56320',aws_access_key_id='engage-test-only',aws_secret_access_key='engage-test-only',region_name='us-east-1')
+          for attempt in range(50):
+              try:
+                  client.create_bucket(Bucket='engage-test')
+                  break
+              except Exception:
+                  if attempt == 49: raise
+                  time.sleep(0.1)
+          PYCODE
+      - name: Protocol and cluster recovery
+        run: python3 scripts/ci-protocol.py --prepare
+        env:
+          ENGAGE_TEST_POSTGRES: postgres://postgres:engage-test-only@localhost:5432/engage
+          ENGAGE_TEST_S3_ENDPOINT: http://127.0.0.1:56320
+          ENGAGE_TEST_S3_BUCKET: engage-test
+          AWS_ACCESS_KEY_ID: engage-test-only
+          AWS_SECRET_ACCESS_KEY: engage-test-only
+          AWS_ALLOW_HTTP: 'true'
+          CARGO_INCREMENTAL: '0'
+      - name: Audit dependencies
+        run: cargo install cargo-audit --version 0.22.2 --locked && cargo audit

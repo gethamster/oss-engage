@@ -1,0 +1,37 @@
+[package]
+name = "engage-cli"
+description = "Engage's Rust-native Board-compatible command line"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "engage"
+path = "src/main.rs"
+
+[dependencies]
+engage-client = { path = "../engage-client" }
+engage-core = { path = "../engage-core" }
+engage-store = { path = "../engage-store" }
+engage-server = { path = "../engage-server" }
+engage-sync = { path = "../engage-sync" }
+clap = { version = "4", features = ["derive", "env"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "fs", "process"] }
+axum = "0.8"
+url = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tempfile = "3"
+
+[lints]
+workspace = true

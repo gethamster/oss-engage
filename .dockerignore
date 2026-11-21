@@ -1,0 +1,8 @@
+.git
+.cache
+target
+.env
+.env.*
+.engage
+**/dist
+**/node_modules

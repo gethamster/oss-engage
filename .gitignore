@@ -9,3 +9,6 @@
 *.db-shm
 *.db-wal
 .DS_Store
+.engage/
+__pycache__/
+*.pyc
