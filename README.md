@@ -29,7 +29,7 @@ cargo run -p engage-cli -- --as adam tasks claim work/ --ready --json
 ```
 
 The CLI stores task claim capabilities privately so a later invocation can renew,
-release, or complete its claim. `engage tasks run` runs a command under a renewed
+release, or complete its claim. `engage tasks run` runs a noninteractive worker command under a renewed
 lease and stops it if renewal fails. Use `engage --help` for all commands.
 
 ## Work with Adam

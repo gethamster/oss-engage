@@ -178,3 +178,20 @@ async fn private_channel_rejects_unmapped_identity_before_grant_writes()
     assert!(request.await??.starts_with("GET /api/board/me "));
     Ok(())
 }
+
+#[tokio::test]
+async fn transport_errors_redact_upload_capability_urls() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve a local test port");
+    let address = listener.local_addr().expect("reserved address");
+    drop(listener);
+    let error = reqwest::Client::new()
+        .get(format!(
+            "http://{address}/upload?ticket=test-capability-do-not-log"
+        ))
+        .send()
+        .await
+        .expect_err("closed test port");
+    let error = engage_client::ClientError::from(error);
+    assert!(!error.to_string().contains("test-capability-do-not-log"));
+    assert!(!format!("{error:?}").contains("test-capability-do-not-log"));
+}

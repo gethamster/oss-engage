@@ -22,6 +22,8 @@ jobs:
         run: npm install --global pnpm@11.23.0
       - name: Install Rust toolchain
         run: rustup show
+      - name: Install pinned CI tools
+        run: python3 scripts/install-ci-tools.py
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
@@ -30,12 +32,9 @@ jobs:
       - run: cargo doc --workspace --no-deps
       - name: Build inspector
         run: |
-          cargo install trunk --version 0.22.2 --locked
           cd crates/engage-inspector
           trunk build --release --public-url /inspect/
       - run: cargo build --release -p engage-cli
-      - name: Build native test service
-        run: cargo build -p engage-cli
       - name: Start disposable S3 emulator
         run: |
           python3 -m venv .cache/s3
@@ -53,7 +52,7 @@ jobs:
                   time.sleep(0.1)
           PYCODE
       - name: Protocol and cluster recovery
-        run: python3 scripts/ci-protocol.py --prepare
+        run: python3 scripts/ci-protocol.py --prepare --binary target/release/engage
         env:
           ENGAGE_TEST_POSTGRES: postgres://postgres:engage-test-only@localhost:5432/engage
           ENGAGE_TEST_S3_ENDPOINT: http://127.0.0.1:56320
@@ -63,4 +62,12 @@ jobs:
           AWS_ALLOW_HTTP: 'true'
           CARGO_INCREMENTAL: '0'
       - name: Audit dependencies
-        run: cargo install cargo-audit --version 0.22.2 --locked && cargo audit
+        run: cargo audit
+      - name: Package the retained Linux binary
+        run: python3 scripts/package.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: engage-linux-amd64
+          path: .cache/release/*.tar.gz
+          if-no-files-found: error
+          retention-days: 3

@@ -45,7 +45,7 @@ Upstream has no NOTICE file. Engage adaptations are modified Rust implementation
   edit/claim races, idempotency, stale fencing, secret redaction, shared files, and
   snapshot/feed continuity. Restart tests preserve active delivery leases,
   acknowledgements, and a scheduled SQLite send through downtime.
-- 98 native tests passed; formatting, strict Clippy, rustdoc, dependency audit,
+- 103 native tests passed; formatting, strict Clippy, rustdoc, dependency audit,
   inspector WASM build/Clippy, and native release build passed. Dependency audit
   reports zero security advisories. Advisory fixes select SQLx 0.9 with
   libsqlite3-sys 0.40, object_store 0.14, and AWS-LC-backed JWT verification.
@@ -76,3 +76,8 @@ Upstream has no NOTICE file. Engage adaptations are modified Rust implementation
 The container build recipe includes the native package and dependency notices.
 It was not executed locally because the Docker daemon is unavailable. The native
 macOS archive was booted and its bundled inspector/WASM and task API verified.
+
+Task command runners enforce confirmed monotonic lease deadlines even while a
+renewal request is stalled. They use closed standard input; on Unix, lease loss
+stops the worker process group. Client transport diagnostics redact upload
+capability URLs. Dedicated regressions cover these boundaries.

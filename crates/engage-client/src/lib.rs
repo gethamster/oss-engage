@@ -48,7 +48,7 @@ pub enum ClientError {
     InvalidHeader,
     /// The HTTP transport failed.
     #[error("board request failed: {0}")]
-    Transport(#[from] reqwest::Error),
+    Transport(#[source] reqwest::Error),
     /// The server returned a Board protocol error.
     #[error("{code}: {message}")]
     Api {
@@ -64,6 +64,14 @@ pub enum ClientError {
     /// A successful response contained malformed JSON or an unexpected shape.
     #[error("invalid board response: {0}")]
     Decode(#[from] serde_json::Error),
+}
+
+impl From<reqwest::Error> for ClientError {
+    fn from(error: reqwest::Error) -> Self {
+        // Direct-upload URLs carry short-lived capabilities. Transport errors
+        // must not copy those query strings into logs or user-visible diagnostics.
+        Self::Transport(error.without_url())
+    }
 }
 
 /// A reusable client. Clones share the underlying HTTP connection pool.

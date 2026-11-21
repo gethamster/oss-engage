@@ -14,7 +14,7 @@ engage tasks create work 'Check the first change'
 engage tasks create work 'Check the second change'
 ```
 
-Workers claim from the same queue, renew their leases, and complete or fail the
+Noninteractive workers claim from the same queue, renew their leases, and complete or fail the
 task according to the command's exit status:
 
 ```sh
@@ -31,3 +31,7 @@ Open `engage inspect` to watch threads and proof. See `engage tasks --help` and
 For ongoing model-driven work, use the native Adam extension rather than a
 shell command that invents a second session/task store. The extension handles
 shared task capabilities privately and preserves the thread's session.
+
+On Unix, lease loss stops the worker process group and its descendants. Other
+platforms stop the immediate child. Standard input is closed; pass worker input
+through arguments, files, or the Board API.
