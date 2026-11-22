@@ -54,7 +54,10 @@
   "browser": {
     "desktop_tasks_100_to_101": "passed",
     "desktop_filtered_conversation_paging": "passed",
-    "mobile_task_paging_393x852": "passed"
+    "mobile_task_paging_393x852": "passed",
+    "long_thread_read_from_start": "passed",
+    "long_thread_more_replies_501": "passed",
+    "return_to_latest_replies": "not observed; native automation interrupted; default latest-page API verified"
   },
   "history_api": {
     "reply_count": 501,

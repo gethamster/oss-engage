@@ -1,0 +1,55 @@
+{
+  "checkedAt": "2026-11-22T06:10:05.477123+00:00",
+  "browser": "Google Chrome native CUA",
+  "service": "http://127.0.0.1:56324",
+  "fixture": ".cache/gap-audit/browser-fixture.json",
+  "checks": [
+    {
+      "name": "desktop task pagination",
+      "status": "passed",
+      "observed": "More tasks exposed Queue task101; opening101 displayed its heading and Claim control."
+    },
+    {
+      "name": "filtered conversation pagination",
+      "status": "passed",
+      "observed": "With audit=included filter, Older conversations exposed Included conversation001; no Excluded conversation appeared in the observed accessibility tree."
+    },
+    {
+      "name": "mobile task pagination",
+      "status": "passed",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "observed": "iPhone16 emulation: More tasks exposed task101; opening it displayed Back to conversations and Claim controls."
+    },
+    {
+      "name": "long thread default tail",
+      "status": "passed",
+      "observed": "501-reply fixture default displayed root, History reply002,003 and Read from start."
+    },
+    {
+      "name": "long thread first page",
+      "status": "passed",
+      "observed": "After Read from start with rebuilt memoized WASM, Chrome Find returned Result1of1 for History reply001 and No results for History reply501; More replies control present."
+    },
+    {
+      "name": "long thread append next page",
+      "status": "passed",
+      "observed": "After More replies, Chrome Find returned Result1of1 for History reply501 and Result1of1 for History reply001, proving first and final replies retained."
+    },
+    {
+      "name": "return to latest replies",
+      "status": "unverified",
+      "observed": "Latest replies control was visibly present. Its click was attempted, but CUA reported input_required did not complete within10MRTR rounds; following observation was aborted after174seconds. Restored tail was not observed."
+    }
+  ],
+  "lastConfirmedVisibleState": "Latest replies control above root and History reply001,002,003 in loaded history view.",
+  "runtimeNotes": [
+    "Initial500-reply rendering caused input/compositor stalls. MessageCard now memoizes a borrowed lookup and clones only the selected message. Native helper test and root-reported WASM build/Clippy passed; repeated history steps responded without the earlier stalls.",
+    "Native accessibility tree omitted the large conversation subtree. Screenshots and browser Find were used for history checks.",
+    "Only browser console message observed was Chrome warning that preload integrity is ignored for unsupported destinations; no runtime error observed."
+  ],
+  "automationLimit": "Final Latest replies return could not be observed after native CUA internal input_required error and aborted observation.",
+  "cleanup": "No separate service or cache started; root owns the fixture service. DevTools device toolbar was disabled and DevTools closed after mobile check."
+}
