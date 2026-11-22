@@ -25,12 +25,24 @@ pub(crate) async fn poll(
     let is_matches = method == "GET" && path == "/watchers/matches";
     let is_claim = method == "POST" && path == "/tasks/claim";
     let seconds = if is_claim {
-        body.get("wait").and_then(Value::as_f64).unwrap_or(0.0)
+        body.get("wait")
+            .map(|value| {
+                value
+                    .as_f64()
+                    .ok_or_else(|| error(400, "bad_request", "wait must be a number"))
+            })
+            .transpose()?
+            .unwrap_or(0.0)
     } else {
         query
             .iter()
             .find(|(name, _)| name == "wait")
-            .and_then(|(_, s)| s.parse::<f64>().ok())
+            .map(|(_, value)| {
+                value
+                    .parse::<f64>()
+                    .map_err(|_| error(400, "bad_request", "wait must be a number"))
+            })
+            .transpose()?
             .unwrap_or(0.0)
     };
     let maximum = if is_matches { 25.0 } else { 300.0 };
@@ -43,22 +55,16 @@ pub(crate) async fn poll(
     }
     let should_wait = (is_events || is_matches || is_claim) && seconds > 0.0;
     let deadline = tokio::time::Instant::now() + Duration::from_secs_f64(seconds);
-    let mut query: Vec<_> = query
-        .iter()
-        .filter(|(key, _)| key != "wait")
-        .cloned()
-        .collect();
-    let mut input = body.clone();
-    if is_claim && let Some(object) = input.as_object_mut() {
-        object.remove("wait");
-    }
+    // Keep transport fields visible to the shared boundary validator. Removing
+    // `wait` here would bypass duplicate-field and `last` interaction checks.
+    let mut query = query.to_vec();
     loop {
         if expires_at.is_some_and(|expiry| expiry <= chrono::Utc::now().timestamp().max(0) as u64) {
             return Err(error(401, "unauthorized", "board credential has expired"));
         }
         let page = app
             .board
-            .request(principal, method, path, &query, input.clone())
+            .request(principal, method, path, &query, body.clone())
             .await?;
         let empty = if is_claim {
             page.get("task").is_none_or(Value::is_null)
@@ -112,11 +118,7 @@ pub(crate) async fn stream(
         query.push(("after".into(), cursor.to_owned()));
     }
     // Validate the first read before committing the HTTP response to a stream.
-    let first_query: Vec<_> = query
-        .iter()
-        .filter(|(key, _)| key != "wait")
-        .cloned()
-        .collect();
+    let first_query = query.clone();
     let first = app
         .board
         .request(
@@ -135,6 +137,7 @@ pub(crate) async fn stream(
         let mut page = first;
         let mut after: Option<String> = None;
         loop {
+            if app.drain.is_cancelled() {break;}
             let mut last_sent: Option<String> = None;
             if let Some(events) = page.get("events").and_then(Value::as_array) {
                 for event in events {
@@ -153,14 +156,24 @@ pub(crate) async fn stream(
                 after = Some(cursor.to_owned());
             }
             if tokio::time::Instant::now() >= deadline {break;}
-            let identity = match app.auth.identify(&headers,peer).await {
+            let identified = tokio::select! {
+                biased;
+                () = app.drain.cancelled() => break,
+                identity = app.auth.identify(&headers,peer) => identity,
+            };
+            let identity = match identified {
                 Ok(identity) => identity,
                 Err(_) => break,
             };
             let mut next_query = query.clone();
             if let Some(cursor) = &after {next_query.push(("after".into(),cursor.clone()));}
             next_query.push(("wait".into(),"15".into()));
-            match poll(&app,&identity.principal,"GET","/events",&next_query,&Value::Null,identity.expires_at).await {
+            let next = tokio::select! {
+                biased;
+                () = app.drain.cancelled() => break,
+                next = poll(&app,&identity.principal,"GET","/events",&next_query,&Value::Null,identity.expires_at) => next,
+            };
+            match next {
                 Ok(next) => page = next,
                 Err(cause) => {
                     tracing::warn!(code = cause.code, "event stream ended");

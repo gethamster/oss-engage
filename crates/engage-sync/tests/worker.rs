@@ -17,6 +17,7 @@ struct MockBoard {
     existing: bool,
     copies: Value,
     fail_import: bool,
+    matches: Vec<Value>,
 }
 impl MockBoard {
     fn new(items: Vec<Value>) -> Self {
@@ -26,6 +27,7 @@ impl MockBoard {
             existing: false,
             copies: json!({}),
             fail_import: false,
+            matches: vec![],
         }
     }
     fn bodies(&self, path: &str) -> Vec<Value> {
@@ -63,6 +65,7 @@ impl BoardApi for MockBoard {
         }
         Ok(match path {
             "/inbox/demo/next" => json!({"items":self.items}),
+            "/watchers/matches" => json!({"matches":self.matches}),
             "/sync/find" => {
                 json!({"thread":if self.existing{Some("root-1")}else{None},"message":if self.existing&&query.iter().any(|(name,_)|name=="message"){Some("message-1")}else{None}})
             }
@@ -315,4 +318,63 @@ async fn a_human_edit_to_an_imported_message_returns_to_its_platform() {
         .await
         .expect("human edit mirrors back");
     assert_eq!(edits.lock().expect("test lock").len(), 1);
+}
+
+#[tokio::test]
+async fn failed_inbox_item_does_not_abandon_other_leased_threads() {
+    let worker = SyncWorker::new(registry(MockProvider::default()));
+    let mut poison = inbox_message(true);
+    poison["id"] = json!("poison");
+    poison["event"]["kind"] = json!("unknown-kind");
+    let board = MockBoard::new(vec![poison, inbox_message(true)]);
+    assert!(worker.inbox(&board, "demo", 50).await.is_err());
+    assert_eq!(
+        board.bodies("/sync/imports").len(),
+        1,
+        "a failed thread must not abandon the rest of an already leased batch"
+    );
+    assert_eq!(
+        board.bodies("/inbox/demo/delivery-1/ack"),
+        vec![json!({"lease":"lease-1"})]
+    );
+}
+
+#[tokio::test]
+async fn failed_inbox_does_not_block_outbound_matches() {
+    let worker = SyncWorker::new(registry(MockProvider::default()));
+    let mut poison = inbox_message(true);
+    poison["event"]["kind"] = json!("unknown-kind");
+    let board = MockBoard::new(vec![poison]);
+    assert!(worker.run_once(&board, 50).await.is_err());
+    assert!(
+        board
+            .calls
+            .lock()
+            .expect("test lock")
+            .iter()
+            .any(|(_, path, _, _)| path == "/watchers/matches"),
+        "an inbound failure must not stop the outbound consumer"
+    );
+}
+
+#[tokio::test]
+async fn failed_match_does_not_abandon_other_leased_deliveries() {
+    let provider = MockProvider::default();
+    let posts = provider.posts.clone();
+    let worker = SyncWorker::new(registry(provider));
+    let mut board = MockBoard::new(vec![]);
+    board.matches = vec![
+        json!({"watcher":"@sync","id":"bad","lease":"lease-bad","event":{"message":{"thread":"t1"}}}),
+        json!({"watcher":"@sync","id":"good","lease":"lease-good","event":{"type":"message.posted","cursor":"1","message":{"id":"m1","thread":"t1","channel":"work","re":null,"text":"Hello","from":null,"attachments":[]}}}),
+    ];
+    assert!(worker.run_once(&board, 50).await.is_err());
+    assert_eq!(
+        posts.lock().expect("test lock").len(),
+        1,
+        "one failed delivery must not abandon independent leased deliveries"
+    );
+    assert_eq!(
+        board.bodies("/watchers/matches/good/ack"),
+        vec![json!({"lease":"lease-good"})]
+    );
 }

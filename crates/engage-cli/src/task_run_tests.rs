@@ -175,6 +175,23 @@ fn deadlines_reject_bad_expirations_and_never_exceed_request_lease() {
     assert!(confirmed_deadline("1970-01-01T00:00:00Z", requested_at, lease).is_err());
 }
 
+#[test]
+fn long_poll_acquisition_does_not_consume_the_fresh_task_lease() -> anyhow::Result<()> {
+    let requested_at = tokio::time::Instant::now() - Duration::from_secs(40);
+    let until = chrono::DateTime::<chrono::Utc>::from(SystemTime::now() + Duration::from_secs(30))
+        .to_rfc3339();
+    let lease = Duration::from_secs(30);
+    assert!(confirmed_deadline(&until, requested_at, lease).is_err());
+    let acquisition = acquisition_clock(requested_at, Some("60s"))?;
+    assert!(confirmed_deadline(&until, acquisition, lease)? > tokio::time::Instant::now());
+    assert_eq!(acquisition_clock(requested_at, None)?, requested_at);
+    assert_eq!(
+        acquisition_clock(requested_at, Some("1h"))?,
+        requested_at + Duration::from_secs(300)
+    );
+    Ok(())
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn confirmed_renewal_allows_command_to_finish_beyond_initial_lease() -> anyhow::Result<()> {

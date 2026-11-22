@@ -308,7 +308,7 @@ pub(crate) async fn route(
                 if !crate::access::allowed(tx, p, text(&schedule, "channel")?, "read").await? {
                     continue;
                 }
-                if q(query, "all").is_none() && schedule["state"] != "pending"
+                if !matches!(q(query, "all"), Some("true" | "1")) && schedule["state"] != "pending"
                     || q(query, "channel").is_some_and(|v| {
                         !messages::channel_matches(v, schedule["channel"].as_str().unwrap_or(""))
                     })

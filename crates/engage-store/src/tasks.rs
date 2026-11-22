@@ -413,10 +413,13 @@ pub(crate) async fn route(
             let mut found = None;
             let mut all = tx.list("task-state:ready").await?;
             all.sort_by_key(|m| {
-                m["id"]
-                    .as_str()
-                    .and_then(|s| s.parse::<i64>().ok())
-                    .unwrap_or(0)
+                (
+                    m["task"]["for"] != p.actor(),
+                    m["id"]
+                        .as_str()
+                        .and_then(|s| s.parse::<i64>().ok())
+                        .unwrap_or(0),
+                )
             });
             for message in all {
                 if message["task"]["state"] != "ready"
@@ -693,9 +696,10 @@ async fn list(
         }
         let summary = messages::summary(tx, message).await?;
         let position = if latest {
-            summary["last"]["version"]
-                .as_i64()
-                .unwrap_or_else(|| summary["message"]["version"].as_i64().unwrap_or(0))
+            summary["last"]["id"]
+                .as_str()
+                .and_then(|id| id.parse::<i64>().ok())
+                .unwrap_or(id)
         } else {
             id
         };

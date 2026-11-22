@@ -20,6 +20,7 @@ pub(crate) struct App {
     pub limits: crate::limits::Limits,
     pub sync_ready: std::sync::atomic::AtomicBool,
     pub wake: tokio::sync::Notify,
+    pub drain: tokio_util::sync::CancellationToken,
 }
 
 pub(crate) fn router(app: Arc<App>) -> Router {
@@ -35,7 +36,11 @@ pub(crate) fn router(app: Arc<App>) -> Router {
 }
 
 async fn handle(State(app): State<Arc<App>>, request: Request) -> Response {
-    let result = dispatch(app, request).await;
+    let result = tokio::select! {
+        biased;
+        () = app.drain.cancelled() => Err(error(503, "shutting_down", "board service is shutting down")),
+        result = dispatch(app.clone(), request) => result,
+    };
     match result {
         Ok(response) => response,
         Err(cause) => failure(cause),

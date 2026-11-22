@@ -27,6 +27,12 @@ Use OIDC or an explicit bearer credential for a remote listener. Configure OIDC
 issuer, audience, JWKS URL, and the exact owner subjects; JWT claims are verified
 before grant resolution. Profile names do not create new permissions.
 
+New OIDC grants must name `sub`, either exactly or with a terminal `:*` or `/*`
+after a nonempty namespace. Other claims remain exact matches. Review existing
+OIDC grants created without `sub`: they retain their permissions until an owner
+replaces or removes them. An issuer shared by multiple customers does not make
+a claim such as `ref=main` a tenant identity.
+
 Every replica serving the same browser sessions needs the same secret
 `ENGAGE_SESSION_KEY` (at least 32 bytes). Supply it from the deployment's secret
 manager. The browser receives a signed HttpOnly session cookie; provider and
@@ -41,6 +47,11 @@ cannot provide a Tailscale identity.
 The server bounds request bodies, active event streams, and rate-limit state.
 Rate limits are per service instance; apply a shared ingress limit when a
 cluster needs one global request budget.
+
+Embedding hosts should call `Service::drain_requests()` when stopping their HTTP
+listener, then await `WorkerHandle::shutdown()`. Draining cancels event streams,
+long polls, and incomplete request bodies; it permanently stops that service
+instance from accepting operations. The standalone server does this on shutdown.
 
 ## Cluster configuration
 

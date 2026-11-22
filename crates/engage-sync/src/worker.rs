@@ -2,8 +2,13 @@
 use crate::{ProviderPost, Registry, SyncError, TargetKind};
 use async_trait::async_trait;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+
+mod helpers;
+use helpers::{
+    BatchResult, clamp_text, derived_id, keyed_id, lifecycle_text, operation_uuid, provider_text,
+    required, safe_error, segment,
+};
 
 /// A board transport bound to trusted service principals, not platform payload claims.
 #[async_trait]
@@ -62,16 +67,16 @@ impl SyncWorker {
     }
     /// Processes bounded batches without holding SQL locks during platform calls.
     pub async fn run_once(&self, api: &dyn BoardApi, limit: usize) -> Result<usize, SyncError> {
-        let mut processed = 0;
+        let mut batch = BatchResult::default();
         let mut principals = BTreeSet::new();
         for (key, entry) in &self.registry.entries {
-            processed += self.inbox(api, key, limit).await?;
+            batch.record(self.inbox(api, key, limit).await);
             principals.insert(entry.principal.as_str());
         }
         for principal in principals {
-            processed += self.matches(api, principal, limit).await?;
+            batch.record(self.matches(api, principal, limit).await);
         }
-        Ok(processed)
+        batch.finish()
     }
     /// Queues a page of authenticated history through the same durable inbox as webhooks.
     /// Call again with `next` while `more` is true; re-queuing a page is idempotent.
@@ -131,7 +136,7 @@ impl SyncWorker {
                 Value::Null,
             )
             .await?;
-        let mut processed = 0;
+        let mut batch = BatchResult::default();
         for item in page["items"].as_array().into_iter().flatten() {
             let id = required(item, "id")?;
             let lease = required(item, "lease")?;
@@ -140,18 +145,18 @@ impl SyncWorker {
             if let Err(error) = &outcome {
                 ack["error"] = json!(safe_error(error));
             }
-            api.request(
-                &entry.principal,
-                "POST",
-                &format!("/inbox/{key}/{}/ack", segment(id)),
-                &[],
-                ack,
-            )
-            .await?;
-            outcome?;
-            processed += 1;
+            let acknowledged = api
+                .request(
+                    &entry.principal,
+                    "POST",
+                    &format!("/inbox/{key}/{}/ack", segment(id)),
+                    &[],
+                    ack,
+                )
+                .await;
+            batch.record(acknowledged.and(outcome).map(|()| 1));
         }
-        Ok(processed)
+        batch.finish()
     }
     async fn board_channel(&self, key: &str, event: &Value) -> Result<Option<String>, SyncError> {
         let entry = &self.registry.entries[key];
@@ -277,7 +282,11 @@ impl SyncWorker {
                     if let Some(id) = fetched.author["id"].as_str() {
                         fetched.author["id"] = json!(keyed_id(key, entry.provider.platform(), id));
                     }
-                    let result=api.request(principal,"POST","/sync/imports",&[],json!({"op":"post","author":fetched.author,"from":from,"channel":channel,"text":fetched.text,"labels":fetched.labels,"origin":{"channel":event["channel"],"thread":thread,"subthread":null,"message":format!("root:{operation}"),"context":null},"source":source,"id":derived_id(key,thread)})).await?;
+                    let root_message = entry
+                        .provider
+                        .root_message_id(native)
+                        .unwrap_or_else(|| format!("root:{operation}"));
+                    let result=api.request(principal,"POST","/sync/imports",&[],json!({"op":"post","author":fetched.author,"from":from,"channel":channel,"text":fetched.text,"labels":fetched.labels,"origin":{"channel":event["channel"],"thread":thread,"subthread":null,"message":root_message,"context":null},"source":source,"id":derived_id(key,thread)})).await?;
                     root = result["message"]
                         .as_str()
                         .or(result["message"]["id"].as_str())
@@ -449,7 +458,7 @@ impl SyncWorker {
                 Value::Null,
             )
             .await?;
-        let mut processed = 0;
+        let mut batch = BatchResult::default();
         for item in page["matches"].as_array().into_iter().flatten() {
             // A sync consumer must not acknowledge another application's watcher.
             if item["watcher"] != "@sync" {
@@ -460,18 +469,18 @@ impl SyncWorker {
             if let Err(error) = &outcome {
                 ack["error"] = json!(safe_error(error));
             }
-            api.request(
-                principal,
-                "POST",
-                &format!("/watchers/matches/{}/ack", segment(required(item, "id")?)),
-                &[],
-                ack,
-            )
-            .await?;
-            outcome?;
-            processed += 1;
+            let acknowledged = api
+                .request(
+                    principal,
+                    "POST",
+                    &format!("/watchers/matches/{}/ack", segment(required(item, "id")?)),
+                    &[],
+                    ack,
+                )
+                .await;
+            batch.record(acknowledged.and(outcome).map(|()| 1));
         }
-        Ok(processed)
+        batch.finish()
     }
     /// Delivers an already-leased board event; callers acknowledge only after this succeeds.
     pub async fn deliver(
@@ -705,82 +714,4 @@ impl SyncWorker {
         }
         Ok(())
     }
-}
-fn keyed_id(key: &str, platform: &str, id: &str) -> String {
-    if id.starts_with(&format!("{key}:")) {
-        id.into()
-    } else {
-        format!(
-            "{key}:{}",
-            id.strip_prefix(&format!("{platform}:")).unwrap_or(id)
-        )
-    }
-}
-fn required<'a>(value: &'a Value, name: &str) -> Result<&'a str, SyncError> {
-    value[name]
-        .as_str()
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| SyncError::Payload(format!("missing {name}")))
-}
-fn derived_id(key: &str, event: &str) -> String {
-    format!(
-        "sync-{key}-{}",
-        hex::encode(Sha256::digest(event.as_bytes()))
-    )
-}
-fn operation_uuid(identity: &str) -> String {
-    let mut bytes = Sha256::digest(identity.as_bytes());
-    bytes[6] = (bytes[6] & 0x0f) | 0x50;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    let hex = hex::encode(&bytes[..16]);
-    format!(
-        "{}-{}-{}-{}-{}",
-        &hex[..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..]
-    )
-}
-fn segment(value: &str) -> String {
-    url::form_urlencoded::byte_serialize(value.as_bytes())
-        .collect::<String>()
-        .replace('+', "%20")
-}
-fn lifecycle_text(event: &Value) -> String {
-    let text = [
-        event["title"].as_str(),
-        event["url"].as_str(),
-        event["body"].as_str(),
-    ]
-    .into_iter()
-    .flatten()
-    .filter(|value| !value.trim().is_empty())
-    .collect::<Vec<_>>()
-    .join("\n\n");
-    clamp_text(&text)
-}
-fn safe_error(error: &SyncError) -> String {
-    match error {
-        SyncError::Platform { code, .. } | SyncError::Board { code, .. } => code.clone(),
-        SyncError::Unsupported(operation) => format!("unsupported {operation}"),
-        _ => "sync operation failed".into(),
-    }
-}
-
-fn provider_text(key: &str, platform: &str, principal: &str, text: &str) -> String {
-    text.replace(&format!("@[{principal}+{key}:"), &format!("@[{platform}:"))
-        .replace(&format!("@[{key}:"), &format!("@[{platform}:"))
-}
-
-fn clamp_text(text: &str) -> String {
-    const MAX_BYTES: usize = 65_536;
-    if text.len() <= MAX_BYTES {
-        return text.to_owned();
-    }
-    let mut cut = MAX_BYTES - 3;
-    while !text.is_char_boundary(cut) {
-        cut -= 1;
-    }
-    format!("{}…", &text[..cut])
 }

@@ -9,6 +9,10 @@ Source implementation, api/routes.ts, and executable tests take precedence over
 SPEC.md, which is a draft. Upstream is Apache-2.0, Copyright 2026 Vercel Inc.
 Upstream has no NOTICE file. Engage adaptations are modified Rust implementations.
 
+The subject-scoped OIDC grant fix from upstream
+`c935700a992313a6b6614159ce0c024c7df8a5e1` is also implemented. The conformance
+oracle remains pinned to the baseline above.
+
 ## API and test mapping
 
 | Upstream capability | Engage owner | Verification |
@@ -45,14 +49,15 @@ Upstream has no NOTICE file. Engage adaptations are modified Rust implementation
   edit/claim races, idempotency, stale fencing, secret redaction, shared files, and
   snapshot/feed continuity. Restart tests preserve active delivery leases,
   acknowledgements, and a scheduled SQLite send through downtime.
-- 103 native tests passed; formatting, strict Clippy, rustdoc, dependency audit,
+- 131 native tests passed; formatting, strict Clippy, rustdoc, dependency audit,
   inspector WASM build/Clippy, and native release build passed. Dependency audit
-  reports zero security advisories. Advisory fixes select SQLx 0.9 with
+  reports zero vulnerabilities and three unmaintained dependency warnings.
+  Advisory fixes select SQLx 0.9 with
   libsqlite3-sys 0.40, object_store 0.14, and AWS-LC-backed JWT verification.
 - Browser journeys cover task creation, claiming, progress replies, completion,
   desktop and mobile. Remote OIDC and large-file proxy flows have transport tests;
   those two flows have not been exercised end-to-end in a remote browser.
-- Adam canonical Foundry commit 0fe414c161c6fbeafa1ba047dd65fe9c90980a67 passed
+- Adam canonical Foundry commit a1326ae6b5dc32dc7f9ffd2e568117ee217fb060 passed
   actual HTTP wake delivery into its native channel, real workflow worker/session
   engine, and deterministic model: claim, rival rejection, proof, renewal,
   completion, and same-session human follow-up. No paid model was used.
@@ -81,3 +86,18 @@ Task command runners enforce confirmed monotonic lease deadlines even while a
 renewal request is stalled. They use closed standard input; on Unix, lease loss
 stops the worker process group. Client transport diagnostics redact upload
 capability URLs. Dedicated regressions cover these boundaries.
+
+The follow-up gap audit corrected forward thread paging, creation-based activity
+order, phrase search, assigned-task selection, canceled schedule filtering, and
+HTTP/SSE wait validation. Shutdown now drains active streams, polls, and request
+bodies. Inspector task/conversation paging preserves filters; long threads can
+be read from the start in bounded pages using the pinned `after` protocol.
+CLI regressions cover JSON task creation, malformed input, oversized timeouts,
+and acquisition leases after a long poll.
+
+Provider regressions cover Slack form arguments, reply reactions and root replay,
+repository-scoped GitHub backfill IDs, ignored Slack callbacks, redacted transport
+errors, and independent delivery progress after another thread fails. Existing
+OIDC grants without a subject require owner review as described in operations.
+Adam regressions cover renewal capability redaction, private deadline updates,
+cached response sanitation, canonical wait roots, and independent reply retries.

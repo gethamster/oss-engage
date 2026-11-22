@@ -41,7 +41,14 @@ pub async fn execute(client: &Client, args: &TaskArgs, claims: &Claims) -> Resul
         body["lease"] = duration(lease)?.into();
     }
     optional(&mut body, "token", args.options.token.as_ref());
-    let requested_at = Instant::now();
+    let requested_at = acquisition_clock(
+        Instant::now(),
+        if args.options.ready {
+            args.options.wait.as_deref()
+        } else {
+            None
+        },
+    )?;
     let claimed = if args.options.ready {
         body["channel"] = target.into();
         if !args.options.label.is_empty() {
@@ -193,6 +200,19 @@ fn confirmed_deadline(until: &str, requested_at: Instant, lease: Duration) -> Re
         return Err(lost("task lease already expired"));
     }
     Ok(deadline)
+}
+
+fn acquisition_clock(requested_at: Instant, wait: Option<&str>) -> Result<Instant> {
+    // A ready-task long poll grants the lease when work arrives, possibly long
+    // after the request starts. Bound that grant by the server's maximum wait.
+    let wait = wait
+        .map(duration)
+        .transpose()?
+        .unwrap_or_default()
+        .min(300.0);
+    requested_at
+        .checked_add(Duration::from_secs_f64(wait))
+        .context("task wait exceeds the monotonic clock range")
 }
 
 fn renew_at(deadline: Instant, lease: Duration) -> Instant {

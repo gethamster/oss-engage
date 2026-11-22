@@ -249,8 +249,11 @@ async fn follow(client: &Client, args: &ReadArgs, once: bool, json_output: bool)
     if args.all {
         query.push(("all".into(), "true".into()));
     }
-    let deadline =
-        tokio::time::Instant::now() + Duration::from_secs_f64(util::duration(&args.timeout)?);
+    let timeout = Duration::try_from_secs_f64(util::duration(&args.timeout)?)
+        .context("timeout is outside the supported range")?;
+    let deadline = tokio::time::Instant::now()
+        .checked_add(timeout)
+        .context("timeout exceeds the monotonic clock range")?;
     loop {
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         if once && remaining.is_zero() {

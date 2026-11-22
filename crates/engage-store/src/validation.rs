@@ -228,6 +228,14 @@ pub(crate) fn request(
     {
         return Err(invalid("revision must be a positive integer"));
     }
+    if path == "/tasks/claim"
+        && body.get("wait").is_some_and(|wait| {
+            wait.as_f64()
+                .is_none_or(|n| !n.is_finite() || !(0.0..=300.0).contains(&n))
+        })
+    {
+        return Err(invalid("wait must be 0 to 300 seconds"));
+    }
     if path == "/tasks" || path.starts_with("/tasks/") {
         boolean(body, "claim")?;
         array(body, "needs")?;

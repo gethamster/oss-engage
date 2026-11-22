@@ -85,6 +85,50 @@ async fn claim_survives_cli_processes_and_command_runner_completes()
             .find(claim["claim"]["token"].as_str().expect("claim token"))
             .is_none()
     );
+    let from_json = command(
+        &url,
+        directory.path(),
+        &[
+            "tasks",
+            "create",
+            "--data",
+            r#"{"channel":"work","text":"JSON-created task","claim":true}"#,
+        ],
+    )
+    .await?;
+    assert_eq!(from_json["task"]["text"], "JSON-created task");
+    let json_id = from_json["task"]["id"].as_str().expect("JSON task ID");
+    let completed_json = command(
+        &url,
+        directory.path(),
+        &["tasks", "complete", json_id, "saved JSON claim"],
+    )
+    .await?;
+    assert_eq!(completed_json["task"]["task"]["state"], "completed");
+    let malformed = tokio::process::Command::new(env!("CARGO_BIN_EXE_engage"))
+        .args(["--url", &url, "tasks", "create", "--data", "null"])
+        .env("ENGAGE_CONFIG_DIR", directory.path())
+        .output()
+        .await?;
+    assert!(!malformed.status.success());
+    let error = String::from_utf8_lossy(&malformed.stderr);
+    assert!(error.contains("must be a JSON object"), "{error}");
+    assert!(
+        !error.contains("panicked"),
+        "invalid input must not panic: {error}"
+    );
+    let huge_timeout = tokio::process::Command::new(env!("CARGO_BIN_EXE_engage"))
+        .args(["--url", &url, "wait", "work", "--timeout", "1e300"])
+        .env("ENGAGE_CONFIG_DIR", directory.path())
+        .output()
+        .await?;
+    assert!(!huge_timeout.status.success());
+    let error = String::from_utf8_lossy(&huge_timeout.stderr);
+    assert!(error.contains("timeout is outside"), "{error}");
+    assert!(
+        !error.contains("panicked"),
+        "invalid timeout must not panic: {error}"
+    );
     let created = command(
         &url,
         directory.path(),

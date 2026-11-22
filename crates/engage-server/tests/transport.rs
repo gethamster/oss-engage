@@ -496,3 +496,67 @@ async fn percent_encoded_schema_references_are_decoded_once() {
     );
     assert_eq!(value["schema"]["name"], "transport-schema");
 }
+
+#[tokio::test]
+async fn polling_and_streaming_preserve_event_query_validation() {
+    let app = local().await;
+    for accept in ["application/json", "text/event-stream"] {
+        for path in [
+            "/events?wait=invalid",
+            "/events?wait=0&wait=1",
+            "/events?last=10&wait=0",
+            "/events?last=10&wait=1",
+        ] {
+            let request = Request::builder()
+                .uri(path)
+                .header("host", "127.0.0.1:4100")
+                .header("accept", accept)
+                .body(Body::empty())
+                .expect("request builds");
+            let response = app
+                .clone()
+                .oneshot(request)
+                .await
+                .expect("request dispatches");
+            assert_eq!(
+                response.status(),
+                StatusCode::BAD_REQUEST,
+                "{accept} rejects {path}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn ready_task_claim_rejects_a_nonnumeric_wait_before_claiming() {
+    let app = local().await;
+    let (status, _) = json_request(
+        &app,
+        "POST",
+        "/tasks",
+        json!({"channel":"work","text":"remain ready"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, _) = json_request(
+        &app,
+        "POST",
+        "/tasks/claim",
+        json!({"channel":"work","wait":"invalid"}),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "invalid wait cannot consume the ready task"
+    );
+    let (status, claimed) = json_request(
+        &app,
+        "POST",
+        "/tasks/claim",
+        json!({"channel":"work","wait":0}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(claimed["task"]["text"], "remain ready");
+}

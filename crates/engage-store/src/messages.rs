@@ -31,13 +31,11 @@ pub(crate) fn matches(message: &Value, query: &[(String, String)]) -> bool {
                 return false;
             }
             "text"
-                if !value.to_lowercase().split_whitespace().all(|word| {
-                    message["text"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_lowercase()
-                        .contains(word)
-                }) =>
+                if !message["text"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .contains(&value.to_lowercase()) =>
             {
                 return false;
             }
@@ -552,9 +550,12 @@ async fn threads(
         if !matches(root, &labels) || !thread.iter().any(|m| matches(m, &content)) {
             continue;
         }
+        // Activity is the newest live message, not its latest mutation. Edits,
+        // reactions and task transitions do not move a thread in this listing.
         let activity = thread
             .iter()
-            .filter_map(|m| m["version"].as_i64())
+            .filter(|m| m["deleted"] != true || m["re"].is_null())
+            .filter_map(|m| m["id"].as_str().and_then(|id| id.parse::<i64>().ok()))
             .max()
             .unwrap_or(0);
         if q(query, "before")
@@ -574,10 +575,15 @@ async fn threads(
     roots.sort_by_key(|(position, _)| *position);
     let limit = n(query, "limit", 50);
     let more = roots.len() > limit;
+    let forward = q(query, "after").is_some();
     if more {
-        roots.drain(..roots.len() - limit);
+        if forward {
+            roots.truncate(limit);
+        } else {
+            roots.drain(..roots.len() - limit);
+        }
     }
-    let older = if more {
+    let older = if more && !forward {
         roots
             .first()
             .map(|(position, _)| json!(position.to_string()))

@@ -40,6 +40,16 @@ impl Service {
         crate::http::router(self.app.clone())
     }
 
+    /// Ends active event streams and requests, and rejects subsequent HTTP work.
+    ///
+    /// This operation is terminal for this service and its cloned routers. An
+    /// embedding host should call it when stopping its listener so long polls or
+    /// incomplete request bodies cannot delay graceful shutdown. Stop background
+    /// workers separately with [`WorkerHandle::shutdown`].
+    pub fn drain_requests(&self) {
+        self.app.drain.cancel();
+    }
+
     /// Starts durable schedules, provider sync, and watcher notifications.
     ///
     /// Keep the returned handle alive for the embedding application's lifetime.

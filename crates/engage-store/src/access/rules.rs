@@ -141,6 +141,21 @@ pub(super) fn principal_id(p: &Principal) -> String {
     p.id.split(':').skip(2).collect::<Vec<_>>().join(":")
 }
 
+/// A bounded terminal subject wildcard cannot include a neighboring project.
+pub(super) fn subject_prefix(value: &str) -> Option<&str> {
+    let prefix = value.strip_suffix('*')?;
+    (prefix.len() > 1 && (prefix.ends_with(':') || prefix.ends_with('/')) && !prefix.contains('*'))
+        .then_some(prefix)
+}
+
+fn claim_matches(name: &str, expected: &str, actual: &str) -> bool {
+    if name == "sub" {
+        subject_prefix(expected).map_or(expected == actual, |prefix| actual.starts_with(prefix))
+    } else {
+        expected == actual
+    }
+}
+
 pub(super) fn matches_principal(subject: &Value, p: &Principal) -> Option<u8> {
     let kind = principal_kind(p);
     let claims = &p.facts["claims"];
@@ -221,11 +236,14 @@ pub(super) fn matches_principal(subject: &Value, p: &Principal) -> Option<u8> {
                         .unwrap_or_else(|| actual.to_string());
                     expected.as_str().map_or_else(
                         || {
-                            expected
-                                .as_array()
-                                .is_some_and(|items| items.iter().any(|v| v == &text))
+                            expected.as_array().is_some_and(|items| {
+                                items
+                                    .iter()
+                                    .filter_map(Value::as_str)
+                                    .any(|value| claim_matches(name, value, &text))
+                            })
                         },
-                        |value| value == text,
+                        |value| claim_matches(name, value, &text),
                     )
                 })
                 .then_some(0)

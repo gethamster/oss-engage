@@ -38,6 +38,19 @@ pub fn message(value: &Value) -> &Value {
     value.get("message").unwrap_or(value)
 }
 
+/// Borrows one entry without copying a thread's full reply history.
+pub fn thread_message<'a>(thread: &'a Value, id: &str) -> Option<&'a Value> {
+    let root = message(thread);
+    if field(root, "id") == id {
+        return Some(root);
+    }
+    thread
+        .get("replies")?
+        .as_array()?
+        .iter()
+        .find(|reply| field(reply, "id") == id)
+}
+
 /// A root message's task state, if it is a task.
 pub fn task_state(value: &Value) -> &str {
     value
@@ -92,6 +105,39 @@ pub fn row_key(value: &Value) -> String {
         field(value, "state"),
         field(value, "next")
     )
+}
+
+/// Uses each collection's protocol continuation without assuming numeric cursors.
+pub fn page_cursor(value: &Value, key: &str, limit: usize) -> String {
+    if key == "replies" {
+        let replies = list(value, key);
+        if replies.len() == limit {
+            replies
+                .last()
+                .map(|reply| field(reply, "id").to_owned())
+                .unwrap_or_default()
+        } else {
+            String::new()
+        }
+    } else if key == "tasks" {
+        if list(value, key).len() == limit {
+            field(value, "cursor").to_owned()
+        } else {
+            String::new()
+        }
+    } else {
+        field(value, "older").to_owned()
+    }
+}
+
+/// Combines overlapping collection pages while preserving the first page's order.
+pub fn merge_items(items: Vec<Value>, page: Vec<Value>) -> Vec<Value> {
+    let mut seen = std::collections::BTreeSet::new();
+    items
+        .into_iter()
+        .chain(page)
+        .filter(|item| seen.insert(field(message(item), "id").to_owned()))
+        .collect()
 }
 
 /// Upload tickets use the authenticated board origin, including through CLI proxies.
@@ -151,6 +197,57 @@ mod tests {
             row_key(&json!({"id":"1","version":1})),
             row_key(&json!({"id":"1","version":2}))
         );
+    }
+
+    #[test]
+    fn task_and_thread_pages_keep_distinct_continuation_contracts() {
+        let first = json!({"tasks":[{"message":{"id":"a"}},{"message":{"id":"b"}}],"cursor":"opaque-task-cursor"});
+        let next = json!({"tasks":[{"message":{"id":"b"}},{"message":{"id":"c"}}],"cursor":"next"});
+        assert_eq!(page_cursor(&first, "tasks", 2), "opaque-task-cursor");
+        assert_eq!(page_cursor(&first, "tasks", 3), "");
+        assert_eq!(
+            page_cursor(&json!({"tasks":[],"cursor":"end"}), "tasks", 2),
+            ""
+        );
+        assert_eq!(
+            page_cursor(
+                &json!({"threads":[],"cursor":"feed","older":"older-page"}),
+                "threads",
+                2
+            ),
+            "older-page"
+        );
+        let combined = merge_items(list(&first, "tasks"), list(&next, "tasks"));
+        let ids: Vec<_> = combined
+            .iter()
+            .map(|item| field(message(item), "id"))
+            .collect();
+        assert_eq!(ids, ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn forward_reply_pages_preserve_order_and_remove_page_overlap() {
+        let current = json!({"replies":[{"id":"middle"},{"id":"latest"}]});
+        let older = json!({"replies":[{"id":"oldest"},{"id":"middle"}]});
+        assert_eq!(page_cursor(&current, "replies", 2), "latest");
+        assert_eq!(page_cursor(&older, "replies", 3), "");
+        let replies = merge_items(list(&older, "replies"), list(&current, "replies"));
+        let ids: Vec<_> = replies.iter().map(|reply| field(reply, "id")).collect();
+        assert_eq!(ids, ["oldest", "middle", "latest"]);
+    }
+
+    #[test]
+    fn thread_lookup_borrows_the_root_or_exact_reply_and_reports_absence() {
+        let thread = json!({"message":{"id":"root","text":"Root"},"replies":[{"id":"first","text":"First"},{"id":"last","text":"Last"}]});
+        assert!(std::ptr::eq(
+            thread_message(&thread, "root").expect("root"),
+            &thread["message"]
+        ));
+        assert!(std::ptr::eq(
+            thread_message(&thread, "last").expect("reply"),
+            &thread["replies"][1]
+        ));
+        assert!(thread_message(&thread, "missing").is_none());
     }
 
     #[test]

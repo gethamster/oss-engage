@@ -115,3 +115,30 @@ async fn embedded_service_shares_memory_blobs_and_runs_its_durable_scheduler() {
         .await
         .expect("all owned workers stop and join");
 }
+
+#[tokio::test]
+async fn embedded_request_drain_applies_to_existing_and_future_router_clones() {
+    let board = Board::connect("sqlite::memory:")
+        .await
+        .expect("board opens");
+    let service = Service::new(
+        board,
+        ServerConfig {
+            blobs: BlobConfig::Memory,
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("service initializes");
+    let existing = service.router();
+    service.drain_requests();
+    for router in [existing, service.router()] {
+        let request = Request::builder()
+            .uri("/healthz")
+            .header("host", "127.0.0.1:4100")
+            .body(Body::empty())
+            .expect("request builds");
+        let response = router.oneshot(request).await.expect("request dispatches");
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+}

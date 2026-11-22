@@ -71,6 +71,16 @@ impl Provider for Sink {
             kind: TargetKind::Channel,
         })
     }
+    fn root_message_id(&self, thread: &str) -> Option<String> {
+        thread.split_once(':').map(|(_, message)| message.into())
+    }
+    async fn fetch_root(&self, _: &str) -> Result<Option<engage_sync::SyncRoot>, SyncError> {
+        Ok(Some(engage_sync::SyncRoot {
+            text: "Original root".into(),
+            author: json!({"id":"sink:user:person","handle":"person","name":"Person","avatar":null,"isBot":false}),
+            labels: BTreeMap::new(),
+        }))
+    }
     async fn react(
         &self,
         _thread: &str,
@@ -337,4 +347,70 @@ async fn a_board_reaction_to_imported_history_mirrors_back_to_its_source_copy() 
         "board-origin reaction must reach its imported source copy"
     );
     assert_eq!(edits[0], "react:heart:true");
+}
+
+#[tokio::test]
+async fn reply_first_import_keeps_canonical_root_identity_for_replay_and_edits() {
+    let board = Board::connect("sqlite::memory:").await.expect("database");
+    let api = Local(board.clone());
+    let mut registry = Registry::new();
+    registry
+        .register("sink", "service:sink", Sink::default())
+        .expect("provider");
+    registry.map_channel("sink", "C1", "work").expect("mapping");
+    let worker = SyncWorker::new(registry);
+    worker.register(&api).await.expect("register");
+    let author = json!({"id":"sink:user:person","handle":"person","name":"Person","avatar":null,"isBot":false});
+    for (id, message, is_root, text) in [
+        ("reply", "1.1", false, "First observed reply"),
+        ("late-root", "1.0", true, "Original root"),
+    ] {
+        api.request("service:sink", "POST", "/inbox/sink", &[], json!({"events":[{"id":id,"event":{"kind":"message","channel":"sink:C1","thread":"sink:C1:1.0","message":message,"isRoot":is_root,"text":text,"author":author}}]})).await.expect("enqueue");
+        worker.run_once(&api, 10).await.expect("import");
+    }
+    let threads = board
+        .request(
+            &Principal::default(),
+            "GET",
+            "/threads",
+            &[("channel".into(), "work".into())],
+            Value::Null,
+        )
+        .await
+        .expect("threads");
+    let root = threads["threads"][0]["message"]["id"]
+        .as_str()
+        .expect("root ID");
+    let view = board
+        .request(
+            &Principal::default(),
+            "GET",
+            &format!("/messages/{root}"),
+            &[],
+            Value::Null,
+        )
+        .await
+        .expect("thread");
+    assert_eq!(
+        view["replies"].as_array().expect("replies").len(),
+        1,
+        "later root delivery must not become a duplicate reply"
+    );
+    assert_eq!(
+        view["message"]["origin"]["message"], "1.0",
+        "synthetic root keeps platform identity"
+    );
+    api.request("service:sink", "POST", "/inbox/sink", &[], json!({"events":[{"id":"edit-root","event":{"kind":"edited","channel":"sink:C1","thread":"sink:C1:1.0","message":"1.0","text":"Root correction","author":author}}]})).await.expect("queue root edit");
+    worker.run_once(&api, 10).await.expect("root edit");
+    let view = board
+        .request(
+            &Principal::default(),
+            "GET",
+            &format!("/messages/{root}"),
+            &[],
+            Value::Null,
+        )
+        .await
+        .expect("thread after edit");
+    assert_eq!(view["message"]["text"], "Root correction");
 }

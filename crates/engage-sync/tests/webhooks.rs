@@ -353,3 +353,41 @@ async fn slack_legacy_verification_token_is_not_persisted_or_debug_logged() {
         .expect("valid fixture");
     assert!(received.incoming[0].raw.get("token").is_none());
 }
+
+#[tokio::test]
+async fn slack_ignores_unhandled_events_before_requiring_message_fields() {
+    let provider = Slack::new(credentials(None));
+    let request = signed_slack(
+        json!({"type":"event_callback","event_id":"EvUser","event":{"type":"user_change","user":{"id":"U1"}}}),
+    );
+    let response = provider
+        .receive("slack", &request)
+        .await
+        .expect("unhandled event acknowledged");
+    assert_eq!(response.status, 200);
+    assert!(response.incoming.is_empty());
+}
+
+#[tokio::test]
+async fn transport_errors_redact_capability_urls() {
+    let error = reqwest::Client::new()
+        .get("http://127.0.0.1:1/upload?capability=private-upload-secret")
+        .send()
+        .await
+        .expect_err("fixture endpoint unavailable");
+    let error = SyncError::from(error);
+    assert!(
+        !format!("{error:?} {error}").contains("private-upload-secret"),
+        "transport diagnostics must not expose upload capabilities"
+    );
+}
+
+#[test]
+fn slack_root_message_id_uses_the_canonical_thread_timestamp() {
+    let provider = Slack::new(credentials(None));
+    assert_eq!(
+        provider.root_message_id("C1:1727.100"),
+        Some("1727.100".into())
+    );
+    assert_eq!(provider.root_message_id("invalid"), None);
+}

@@ -57,6 +57,23 @@ pub fn Thread() -> impl IntoView {
                 >
                     <div class="thread-content">
                         <TaskBar />
+                        <Show when=move || console.thread_from_start.get() || content::list(&console.thread.get(), "replies").len() == 500>
+                            <div class="thread-tools">
+                                <button
+                                    class="button small"
+                                    disabled=move || console.loading_replies.get()
+                                    on:click=move |_| {
+                                        if console.thread_from_start.get_untracked() {
+                                            console.latest_replies();
+                                        } else {
+                                            console.read_from_start();
+                                        }
+                                    }
+                                >
+                                    {move || if console.loading_replies.get() { "Loading…" } else if console.thread_from_start.get() { "Latest replies" } else { "Read from start" }}
+                                </button>
+                            </div>
+                        </Show>
                         <For
                             each=move || {
                                 let thread = console.thread.get();
@@ -72,6 +89,15 @@ pub fn Thread() -> impl IntoView {
                             key=|id| id.clone()
                             children=move |id| view! { <MessageCard id /> }
                         />
+                        <Show when=move || console.thread_from_start.get() && !console.reply_cursor.get().is_empty()>
+                            <button
+                                class="button load-more"
+                                disabled=move || console.loading_replies.get()
+                                on:click=move |_| console.more_replies()
+                            >
+                                {move || if console.loading_replies.get() { "Loading…" } else { "More replies" }}
+                            </button>
+                        </Show>
                         {move || {
                             let selected = console.selected.get();
                             view! { <Composer reply_to=Some(selected) /> }
@@ -87,16 +113,12 @@ pub fn Thread() -> impl IntoView {
 fn MessageCard(id: String) -> impl IntoView {
     let console = expect_context::<Console>();
     let id = StoredValue::new(id);
-    let message = Signal::derive(move || {
-        let thread = console.thread.get();
-        let root = content::message(&thread);
-        if content::field(root, "id") == id.get_value() {
-            return root.clone();
-        }
-        content::list(&thread, "replies")
-            .into_iter()
-            .find(|message| content::field(message, "id") == id.get_value())
-            .unwrap_or(Value::Null)
+    let message = Memo::new(move |_| {
+        console.thread.with(|thread| {
+            content::thread_message(thread, &id.get_value())
+                .cloned()
+                .unwrap_or(Value::Null)
+        })
     });
     let editing = RwSignal::new(false);
     let draft = RwSignal::new(String::new());

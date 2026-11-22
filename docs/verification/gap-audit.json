@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-21",
+  "upstream": "fef19e5bb1e17551f119be11f7af8ed3387892bb",
+  "selective_upstream": [
+    "c935700a992313a6b6614159ce0c024c7df8a5e1"
+  ],
+  "checks": {
+    "rust_tests_passed": 131,
+    "format": "passed",
+    "clippy": "passed",
+    "rustdoc": "passed",
+    "inspector_wasm_release": "passed",
+    "dependency_audit": "zero vulnerabilities; three unmaintained warnings",
+    "inspector_wasm_clippy": "passed"
+  },
+  "protocol": {
+    "sqlite": {
+      "passed": 85,
+      "failed": 0,
+      "contextual_skips": 6
+    },
+    "postgres": {
+      "passed": 85,
+      "failed": 0,
+      "contextual_skips": 6
+    },
+    "unsupported_skips": 0
+  },
+  "recovery": {
+    "ok": true,
+    "checks": [
+      "SQLite conformance",
+      "PostgreSQL conformance",
+      "two-replica shared storage and claims",
+      "unexpired delivery lease survives owner restart",
+      "cross-replica acknowledgement survives restart",
+      "one-time SQLite schedule survives downtime"
+    ]
+  },
+  "adam": {
+    "revision": "a1326ae6b5dc32dc7f9ffd2e568117ee217fb060",
+    "adapter_tests_passed": 16,
+    "focused_clippy": "passed",
+    "http_wake_real_workflow_deterministic_model": "passed",
+    "journey_seconds": 7.93,
+    "canonical_main_push": "verified"
+  },
+  "limits": [
+    "Live Slack/GitHub/Linear accounts and cloud S3 unverified",
+    "Remote OIDC/large-file browser deployment not exercised",
+    "Container recipe not executed locally",
+    "Legacy OIDC grants without sub require owner review"
+  ],
+  "browser": {
+    "desktop_tasks_100_to_101": "passed",
+    "desktop_filtered_conversation_paging": "passed",
+    "mobile_task_paging_393x852": "passed"
+  },
+  "history_api": {
+    "reply_count": 501,
+    "pages": [
+      500,
+      1
+    ],
+    "first": "History reply 001",
+    "last": "History reply 501",
+    "overlap": false
+  }
+}

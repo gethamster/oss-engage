@@ -45,3 +45,21 @@ async fn malformed_optional_fields_are_rejected_at_boundary() {
         assert_eq!(error.status, 400);
     }
 }
+
+#[tokio::test]
+async fn claim_wait_is_a_bounded_number_at_the_shared_boundary() {
+    let board = Board::connect(":memory:").await.expect("database");
+    for wait in [json!(-1), json!(301), json!("1"), Value::Null] {
+        let error = board
+            .request(
+                &Principal::default(),
+                "POST",
+                "/tasks/claim",
+                &[],
+                json!({"channel":"work", "wait":wait}),
+            )
+            .await
+            .expect_err("invalid wait");
+        assert_eq!(error.status, 400, "wait={wait}");
+    }
+}

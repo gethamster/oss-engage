@@ -150,7 +150,7 @@ fn github_root(provider: &GitHub, key: &str, repo: &str, item: &Value) -> Vec<cr
         && item.get("merged").is_none()
         && item.get("head").is_none();
     let kind = if issue { "issues" } else { "pull_request" };
-    let delivery = format!("backfill:{kind}:{}", http::string(item, "number"));
+    let delivery = format!("backfill:{repo}:{kind}:{}", http::string(item, "number"));
     let mut payload =
         json!({"action":"opened","repository":{"full_name":repo},"sender":item["user"]});
     payload[if issue { "issue" } else { "pull_request" }] = item.clone();
@@ -260,4 +260,31 @@ async fn linear_root(
             &format!("backfill:issue:{}", http::string(issue, "id")),
         )
         .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn github_root_deliveries_are_scoped_to_the_repository() {
+        let provider = GitHub::new(crate::StaticCredentials(crate::Credentials {
+            access_token: crate::Secret::new("fixture"),
+            webhook_secret: crate::Secret::new("fixture"),
+            bot_user_id: None,
+        }));
+        let issue =
+            json!({"number":1,"title":"Issue","state":"open","user":{"id":1,"login":"person"}});
+        let first = github_root(&provider, "github", "acme/one", &issue);
+        let second = github_root(&provider, "github", "acme/two", &issue);
+        assert_ne!(
+            first[0].id, second[0].id,
+            "repository-local issue numbers must not collide in a shared inbox"
+        );
+        assert_eq!(
+            first,
+            github_root(&provider, "github", "acme/one", &issue),
+            "repeating the same page stays idempotent"
+        );
+    }
 }

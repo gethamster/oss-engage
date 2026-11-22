@@ -159,7 +159,7 @@ fn environments(value: &Value) -> Result<Value, BoardError> {
     Ok(json!(out))
 }
 
-fn normalize_subject(value: &Value) -> Result<Value, BoardError> {
+fn normalize_subject(value: &Value, removal: bool) -> Result<Value, BoardError> {
     let kind = text(value, "kind", 32)?;
     match kind.as_str() {
         "user" => {
@@ -211,6 +211,9 @@ fn normalize_subject(value: &Value) -> Result<Value, BoardError> {
                 .as_object()
                 .filter(|m| !m.is_empty() && m.len() <= 32)
                 .ok_or_else(|| invalid("claims must name at least one claim"))?;
+            if !removal && !claims.contains_key("sub") {
+                return Err(invalid("OIDC grants must name a subject claim"));
+            }
             for (name, claim) in claims {
                 if name.is_empty() || name.len() > 200 {
                     return Err(invalid("invalid claim name"));
@@ -225,6 +228,16 @@ fn normalize_subject(value: &Value) -> Result<Value, BoardError> {
                         .any(|s| s.as_str().is_none_or(|s| s.is_empty() || s.len() > 1000))
                 {
                     return Err(invalid("invalid claim value"));
+                }
+                if name == "sub"
+                    && !removal
+                    && strings.iter().filter_map(|v| v.as_str()).any(|subject| {
+                        subject.contains('*') && rules::subject_prefix(subject).is_none()
+                    })
+                {
+                    return Err(invalid(
+                        "subject wildcard must follow a bounded : or / prefix",
+                    ));
                 }
             }
             Ok(json!({"kind":"oidc","issuer":issuer,"claims":claims}))
@@ -280,7 +293,7 @@ fn build_grant(body: &Value, p: &Principal) -> Result<Value, BoardError> {
         .ok_or_else(|| invalid("a grant needs 1 to 32 principals"))?;
     let mut principals = Vec::new();
     for value in input {
-        join_subject(&mut principals, normalize_subject(value)?);
+        join_subject(&mut principals, normalize_subject(value, false)?);
     }
     Ok(
         json!({"id":uuid::Uuid::new_v4().to_string(),"principals":principals,"can":body["can"],"capped":false,"by":p.actor(),"at":crate::now()}),
@@ -561,7 +574,7 @@ pub(crate) async fn route(
                 .filter(|a| !a.is_empty() && a.len() <= 32)
                 .ok_or_else(|| invalid("invalid remove list"))?;
             for value in list {
-                let normalized = normalize_subject(value)?;
+                let normalized = normalize_subject(value, true)?;
                 let before = subjects.len();
                 subjects.retain(|s| !same_subject(s, &normalized));
                 if subjects.len() == before {
@@ -579,7 +592,7 @@ pub(crate) async fn route(
                 .filter(|a| !a.is_empty() && a.len() <= 32)
                 .ok_or_else(|| invalid("invalid add list"))?;
             for value in list {
-                join_subject(&mut subjects, normalize_subject(value)?);
+                join_subject(&mut subjects, normalize_subject(value, false)?);
             }
         }
         if subjects.is_empty() {
@@ -645,7 +658,7 @@ mod tests {
             ..Principal::default()
         };
         let project =
-            normalize_subject(&json!({"kind":"project","project":"web"})).expect("project");
+            normalize_subject(&json!({"kind":"project","project":"web"}), false).expect("project");
         let grants = vec![
             json!({"id":"a","principals":[project],"can":{"work/":"all"}}),
             json!({"id":"b","principals":[{"kind":"everyone"}],"can":{"work/secret/":[]}}),

@@ -5,7 +5,6 @@ use crate::{
     http::{self, Api},
 };
 use async_trait::async_trait;
-use reqwest::Method;
 use serde_json::{Value, json};
 
 #[derive(Clone, Debug)]
@@ -26,7 +25,37 @@ impl Slack {
         self
     }
     pub(crate) async fn call(&self, method: &str, body: Value) -> Result<Value, SyncError> {
-        self.api.call(Method::POST, method, Some(&body), &[]).await
+        let credentials = self.api.credentials.resolve().await?;
+        // Read and upload methods do not all accept JSON. Form encoding works
+        // across Slack Web API methods; structured argument values stay JSON.
+        let arguments = body
+            .as_object()
+            .ok_or_else(|| SyncError::Payload("Slack arguments must be an object".into()))?
+            .iter()
+            .filter(|(_, value)| !value.is_null())
+            .map(|(name, value)| {
+                (
+                    name.clone(),
+                    value
+                        .as_str()
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| value.to_string()),
+                )
+            })
+            .collect::<Vec<_>>();
+        let response = self
+            .api
+            .client
+            .post(format!(
+                "{}/{}",
+                self.api.base.trim_end_matches('/'),
+                method
+            ))
+            .bearer_auth(credentials.access_token.expose())
+            .form(&arguments)
+            .send()
+            .await?;
+        http::json_response(response).await
     }
     async fn channel(&self, target: &str) -> Result<String, SyncError> {
         let target = target.trim_start_matches('#');
@@ -63,7 +92,14 @@ impl Slack {
         let event = &envelope["event"];
         let kind = event["type"].as_str().unwrap_or_default();
         let subtype = event["subtype"].as_str().unwrap_or_default();
-        if matches!(subtype, "channel_join" | "channel_leave") {
+        if !matches!(kind, "message" | "reaction_added" | "reaction_removed")
+            || matches!(subtype, "channel_join" | "channel_leave")
+        {
+            return Ok(vec![]);
+        }
+        if matches!(kind, "reaction_added" | "reaction_removed")
+            && event["item"]["type"] != "message"
+        {
             return Ok(vec![]);
         }
         let credentials = self.api.credentials.resolve().await?;
@@ -88,10 +124,26 @@ impl Slack {
             .or(event["deleted_ts"].as_str())
             .or(event["item"]["ts"].as_str())
             .ok_or_else(|| SyncError::Payload("missing Slack message timestamp".into()))?;
-        let root = message["thread_ts"]
-            .as_str()
-            .or(event["item"]["thread_ts"].as_str())
-            .unwrap_or(ts);
+        let resolved;
+        let root = if matches!(kind, "reaction_added" | "reaction_removed")
+            && event["item"]["thread_ts"].is_null()
+        {
+            // Reaction events identify only the item, not its parent thread.
+            resolved = self
+                .call("reactions.get", json!({"channel":channel,"timestamp":ts}))
+                .await?;
+            if resolved["message"]["ts"] != ts {
+                return Err(SyncError::Payload(
+                    "Slack reaction item is unavailable".into(),
+                ));
+            }
+            resolved["message"]["thread_ts"].as_str().unwrap_or(ts)
+        } else {
+            message["thread_ts"]
+                .as_str()
+                .or(event["item"]["thread_ts"].as_str())
+                .unwrap_or(ts)
+        };
         let thread = format!("{key}:{channel}:{root}");
         let author = json!({"id":format!("slack:user:{user}"),"handle":user,"name":message["user_profile"]["display_name"].as_str().filter(|v| !v.is_empty()).unwrap_or(user),"avatar":message["user_profile"]["image_72"],"isBot":message.get("bot_id").is_some()});
         let mut normalized = json!({"channel":format!("{key}:{channel}"),"thread":thread,"subthread":null,"message":ts});
@@ -561,6 +613,11 @@ impl Provider for Slack {
     async fn fetch_link(&self, link: &Value, linker: &Value) -> Result<Value, SyncError> {
         crate::slack_links::fetch(self, link, linker).await
     }
+    fn root_message_id(&self, thread: &str) -> Option<String> {
+        split_thread(thread)
+            .ok()
+            .map(|(_, timestamp)| timestamp.into())
+    }
     async fn fetch_root(&self, thread: &str) -> Result<Option<crate::SyncRoot>, SyncError> {
         let (channel, ts) = split_thread(thread)?;
         let result = self
@@ -605,3 +662,6 @@ impl Provider for Slack {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

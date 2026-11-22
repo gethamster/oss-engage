@@ -212,13 +212,14 @@ pub fn App() -> impl IntoView {
                                                 </Show>
                                                 <Show when=move || {
                                                     !console.older.get().is_empty()
-                                                        && console.section.get() == Section::Conversations
+                                                        && matches!(console.section.get(), Section::Conversations | Section::Tasks)
                                                 }>
                                                     <button
                                                         class="button load-more"
-                                                        on:click=move |_| load_older(console)
+                                                        disabled=move || console.loading_more.get()
+                                                        on:click=move |_| console.load_more()
                                                     >
-                                                        "Older conversations"
+                                                        {move || if console.loading_more.get() { "Loading…" } else if console.section.get() == Section::Tasks { "More tasks" } else { "Older conversations" }}
                                                     </button>
                                                 </Show>
                                             </Show>
@@ -328,6 +329,7 @@ fn FeedTools() -> impl IntoView {
                         class="search"
                         on:submit=move |event| {
                             event.prevent_default();
+                            console.pages.set(Vec::new());
                             console.reload();
                         }
                     >
@@ -352,6 +354,7 @@ fn FeedTools() -> impl IntoView {
                         prop:value=move || console.task_filter.get()
                         on:change=move |event| {
                             console.task_filter.set(event_target_value(&event));
+                            console.pages.set(Vec::new());
                             console.reload();
                         }
                     >
@@ -427,6 +430,7 @@ fn FeedTools() -> impl IntoView {
                                     console.by.set(String::new());
                                     console.labels.set(String::new());
                                     console.source.set(String::new());
+                                    console.pages.set(Vec::new());
                                     console.reload();
                                 }
                             >
@@ -576,35 +580,6 @@ fn FeedItem(value: Value) -> impl IntoView {
             .into_any()
         }
     }
-}
-
-fn load_older(console: Console) {
-    leptos::task::spawn_local(async move {
-        let path = api::query(
-            "/threads",
-            &[
-                ("channel", console.channel.get_untracked()),
-                ("before", console.older.get_untracked()),
-                ("text", console.search.get_untracked()),
-            ],
-        );
-        match api::get(&path).await {
-            Ok(value) => {
-                let cursor = console.older.get_untracked();
-                console.pages.update(|pages| {
-                    if !pages.contains(&cursor) {
-                        pages.push(cursor);
-                    }
-                });
-                let older = content::list(&value, "threads");
-                console.items.update(|items| items.extend(older));
-                console
-                    .older
-                    .set(content::field(&value, "older").to_owned());
-            }
-            Err(error) => console.report(error),
-        }
-    });
 }
 
 #[component]

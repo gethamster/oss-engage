@@ -41,11 +41,19 @@ pub async fn execute(
     } else {
         json!({})
     };
+    if !body.is_object() && action != "batch" {
+        bail!("task request data must be a JSON object");
+    }
     if action == "run" {
         return crate::task_run::execute(client, args, &claims).await;
     }
     match action {
         "create" | "batch" => {
+            if action == "create" && options.data.is_some() {
+                let result = client.create_task(&body).await?;
+                save_claim(&claims, &result)?;
+                return Ok(result);
+            }
             if options.file.is_some() || action == "batch" {
                 let input = body_input(options)?;
                 body = if input.is_array() {

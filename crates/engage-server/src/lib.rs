@@ -52,6 +52,7 @@ async fn initialize(board: Board, config: ServerConfig) -> Result<Arc<http::App>
         limits,
         sync_ready,
         wake: tokio::sync::Notify::new(),
+        drain: tokio_util::sync::CancellationToken::new(),
     }))
 }
 
@@ -82,7 +83,10 @@ pub async fn serve(
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .with_graceful_shutdown(shutdown)
+    .with_graceful_shutdown(async move {
+        shutdown.await;
+        service.drain_requests();
+    })
     .await
     .map_err(|cause| error(500, "serve_failed", &format!("listener failed: {cause}")));
     workers.shutdown().await?;

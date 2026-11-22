@@ -41,7 +41,7 @@ pub enum SyncError {
     #[error("credential resolution failed: {0}")]
     Credentials(String),
     #[error("platform request failed: {0}")]
-    Transport(#[from] reqwest::Error),
+    Transport(#[source] reqwest::Error),
     #[error("platform rejected request: {code} (HTTP {status})")]
     Platform { status: u16, code: String },
     #[error("operation is unsupported: {0}")]
@@ -50,6 +50,13 @@ pub enum SyncError {
     Board { status: u16, code: String },
     #[error("no provider registered for {0}")]
     UnknownProvider(String),
+}
+
+impl From<reqwest::Error> for SyncError {
+    fn from(error: reqwest::Error) -> Self {
+        // Upload endpoints can carry bearer capabilities in their path or query.
+        Self::Transport(error.without_url())
+    }
 }
 
 /// Platforms normalize webhooks into Board's external event contract.
@@ -117,6 +124,11 @@ pub trait Provider: Send + Sync + fmt::Debug {
     }
     async fn find_by_email(&self, _email: &str) -> Result<Option<Value>, SyncError> {
         Ok(None)
+    }
+    /// Returns the canonical message ID when a thread root is a platform message.
+    /// Lifecycle-backed roots (such as issues) may leave this unset.
+    fn root_message_id(&self, _thread: &str) -> Option<String> {
+        None
     }
     async fn fetch_root(&self, _thread: &str) -> Result<Option<SyncRoot>, SyncError> {
         Ok(None)
